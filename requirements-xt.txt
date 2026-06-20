@@ -1,0 +1,14 @@
+# Expected Threat (xT) Grid Training Pipeline
+# Pinned for M1 (ARM64) MacBook Air — Python 3.12
+#
+# Install: pip install -r requirements-xt.txt
+
+socceraction==1.5.3
+statsbombpy>=1.15.0
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=14.0.0
+matplotlib>=3.7.0
+tqdm>=4.65.0
+scipy>=1.10.0          # for xT grid interpolation (optional)
+multimethod<2.0.0       # pandera compat: pandera 0.17.x needs multimethod 1.x
