@@ -19,29 +19,42 @@ projects.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
       </p>
     </div>
 
-    <div class="grid gap-6">
+    <div class="grid gap-8">
       {
         projects.map((p) => (
-          <a href={`/projects/${p.id}`} class="card group block p-6">
-            <h2 class="font-serif text-xl font-semibold group-hover:text-accent transition-colors">
-              {p.data.title}
-            </h2>
-            <p class="mt-1 text-sm text-soft-ink">
-              {p.data.date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </p>
-            <p class="mt-2 text-sm text-soft-ink leading-relaxed">
-              {p.data.description}
-            </p>
-            <div class="flex gap-2 mt-4">
-              {p.data.tags.map((t) => (
-                <span class="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-soft-ink">
-                  {t}
-                </span>
-              ))}
+          <a href={`/projects/${p.id}`} class="card group block">
+            {p.data.coverImage && (
+              <img
+                src={p.data.coverImage.src}
+                alt={p.data.title}
+                class="w-full h-52 object-cover"
+              />
+            )}
+            <div class="p-6">
+              <p class="text-xs text-soft-ink tracking-wide uppercase">
+                {p.data.date.toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+              <h2 class="font-serif text-xl font-semibold mt-2 group-hover:text-accent transition-colors leading-snug">
+                {p.data.title}
+              </h2>
+              {p.data.description && (
+                <p class="mt-2 text-sm text-soft-ink leading-relaxed">
+                  {p.data.description}
+                </p>
+              )}
+              {p.data.tags && p.data.tags.length > 0 && (
+                <div class="flex gap-2 mt-4">
+                  {p.data.tags.map((t) => (
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-soft-ink">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </a>
         ))
