@@ -81,6 +81,25 @@ article code {
   border-radius: 4px;
 }
 
+/* Fenced code blocks */
+article pre {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 1.75rem 0;
+  padding: 1.25rem 1.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+
+article pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
 .card {
   @apply bg-white border border-gray-200/60 rounded-2xl overflow-hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);

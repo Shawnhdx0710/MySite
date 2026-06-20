@@ -8,5 +8,8 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
-  integrations: [react(), mdx()],
+  integrations: [react(), mdx({
+    syntaxHighlight: 'shiki',
+    shikiConfig: { theme: 'github-light' },
+  })],
 });
