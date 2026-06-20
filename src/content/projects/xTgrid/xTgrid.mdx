@@ -8,17 +8,17 @@ coverImage: ./xT-heatmap.png
 
 To understand Expected Threat (xT) and an xT grid, please read [Karun Singh's original 2018 blog post](https://karun.in/blog/expected-threat.html). Since xT's introduction, the metric has been reimplemented across an entire ecosystem of open-source tools.
 
-**[`socceraction`](https://github.com/ML-KULeuven/socceraction) (KU Leuven).** The most academically rigorous implementation.Reserachers at KU Leuven built a full pipeline: load data from StatsBomb/Opta/Wyscout, convert to the SPADL unified action format, train an xT model via `ExpectedThreat(l=16, w=12)`, rate individual actions. Their [notebook](https://github.com/ML-KULeuven/socceraction/blob/master/public-notebooks/1-load-and-convert-statsbomb-data.ipynb) walks through every step. However, it assumes the legacy `statsbombpy` event format, which, as we'll see, is the central problem this project had to solve.
+**[`socceraction`](https://github.com/ML-KULeuven/socceraction).** Reserachers at KU Leuven built a full pipeline. Their [notebook](https://github.com/ML-KULeuven/socceraction/blob/master/public-notebooks/1-load-and-convert-statsbomb-data.ipynb) walked through every step. However, it loaded a pre trained model and assumed the legacy `statsbombpy` event format, which, as we'll see, is the central problem this project had to solve.
 
-**[`mplsoccer`](https://mplsoccer.readthedocs.io/en/latest/gallery/tutorials/plot_xt.html) (Andrew Rowlinson).** A comprehensive Python xT tutorial using FA Women's Super League data. Uses a 16×12 grid following Karun Singh's original setup. Great resource to understand *how* xT works .
+**[`mplsoccer`](https://mplsoccer.readthedocs.io/en/latest/gallery/tutorials/plot_xt.html).** This is a Python xT tutorial, using a 16×12 grid.
 
-**[`penaltyblog`](https://penaltyblog.readthedocs.io/en/master/xt/index.html) (David Sumpter / Friends of Tracking).** Solves the xT equation directly with linear algebra rather than value iteration. Ships with a pre-trained model fit on ~14M events from Europe's Big 5 leagues. Also provides the [Soccermatics course notebook](https://soccermatics.readthedocs.io/en/latest/gallery/lesson4/plot_ExpectedThreat.html) with a full Wyscout implementation.
+**[`penaltyblog`](https://penaltyblog.readthedocs.io/en/master/xt/index.html).** This module solved the xT equation directly with linear algebra rather than value iteration. A pre-trained model trained with ~14M events from Europe's Big 5 leagues was mentioned. [Soccermatics course notebook](https://soccermatics.readthedocs.io/en/latest/gallery/lesson4/plot_ExpectedThreat.html), just like the mplsoccer tutorial, can help readers to understand the underlying logic of xT with a simple demonstration. 
 
-**[McKay Johns](https://www.mckayjohns.com/).** A sports analytics educator whose [YouTube channel](https://youtube.com/c/McKayJohns) and [GitHub repos](https://github.com/mckayjohns) (notably [`complete-football-analytics`](https://github.com/mckayjohns/complete-football-analytics)) cover the full Python analytics stack. The repo contains a downloadable CSV xT grid that is ready to use without any training.
+**[McKay Johns](https://www.mckayjohns.com/).** His [YouTube channel](https://youtube.com/c/McKayJohns) and [GitHub repos](https://github.com/mckayjohns) (notably [`complete-football-analytics`](https://github.com/mckayjohns/complete-football-analytics)) cover the full Python analytics stack. The repo contains a downloadable xT grid in CSV format, yet the training datasets are unspecified.
 
-**[The Athletic](https://www.nytimes.com/athletic/2751525/2021/08/06/introducing-expected-threat-or-xt-the-new-metric-on-the-block/) (Tom Worville, August 2021).** One of the earliest mainstream media introductions to Expected Threat. Published an xT grid as part of the explainer, giving readers their first look at what a trained threat surface actually looks like.
+**[The Athletic](https://www.nytimes.com/athletic/2751525/2021/08/06/introducing-expected-threat-or-xt-the-new-metric-on-the-block/).** This is one of the earliest mainstream media introductions to xT. It published an xT grid as part of the explainer.
 
-**[`databallpy`](https://databallpy.readthedocs.io/en/latest/features/xt_models.html).** A Python package that contains a 32×24 xT grid, trained with event data of over 600 games that is not publicly available. 
+**[`databallpy`](https://databallpy.readthedocs.io/en/latest/features/xt_models.html).** This is a Python package that contains a 32×24 xT grid, trained with event data of over 600 games that is not publicly available. 
 
 ### What This Project Does?
 
@@ -27,7 +27,7 @@ All of these tools either (a) ship a pre-trained grid and use it to make further
 So, I built a pipeline that:
 
 - Fetches the event data from all 3,927 publicly available matches in the [StatsBomb Open Data repository](https://github.com/statsbomb/open-data)
-- Converts raw event data to SPADL using a custom converter that bridges the `statsbombpy`/`socceraction` version mismatch
+- Converts raw event data to [SPADL](https://socceraction.readthedocs.io/en/latest/documentation/spadl/spadl.html) using a custom converter that bridges the `statsbombpy`/`socceraction` version mismatch
 - Caches every match as compressed Parquet 
 - Trains an xT grid at 32×24 resolution
 - Runs entirely on an M1 MacBook Air with 8 GB of RAM
@@ -36,11 +36,10 @@ So, I built a pipeline that:
 
 | | |
 |---|---|
-| Training matches | **3,927** |
-| Raw events ingested | ~14 million |
+| Matches | **3,927** |
+| Raw events | **14 million** |
 | SPADL actions | **13.7 million** |
-| Shots | 94,972 (9,841 goals) |
-| Successful moving actions | 5.6 million |
+| Moving actions | **5.6 million** |
 | Training time | **17 seconds** |
 | Grid resolution | 32 × 24 (768 cells) |
 | Machine | M1 MacBook Air, 8 GB RAM |
@@ -49,15 +48,15 @@ So, I built a pipeline that:
 
 There are several important questions need to be considered:
 
-**Can an 8 GB M1 handle this?** The StatsBomb Open Data repository contains roughly 3,900 matches. Each match is a JSON blob of 2,000–4,000 events. Loading everything into memory as raw JSON would consume gigabytes. But after SPADL conversion — which discards irrelevant events (starting XIs, tactical shifts, camera changes) and keeps only ball actions — each match compresses to roughly 1,500–2,000 rows. At ~100 bytes per row with only the columns the xT model needs, the full dataset fits in about 600 MB of RAM during training. This is tight but workable.
+**Can an 8 GB M1 handle this?** The StatsBomb Open Data repository contains roughly 3,900 matches. Each match is a JSON file containing 2,000–4,000 events. Loading everything into memory as raw JSON would consume gigabytes. But SPADL conversion helps discard irrelevant events and keeps only ball actions. Each match then compresses to roughly 1,500–2,000 rows. At ~100 bytes per row with only the columns the xT model needs, the full dataset fits in about 600 MB of RAM during training. This totally workable.
 
 **What library versions?** This is where things got complicated.
 
-**Will the disk survive?** 3,900 JSON files at ~1 MB each = ~4 GB of raw download traffic. But stored as zstd-compressed Parquet, the entire cache shrinks to only 210 MB. 
+**Will the disk survive?** 3,900 JSON files at ~1 MB each equal ~4 GB of raw download traffic. But stored as zstd-compressed Parquet, the entire cache shrinks to only 210 MB. 
 
 ### Version
 
-The pipeline, like many projects in soccer analytics, relies on two libraries: [`socceraction`](https://github.com/ML-KULeuven/socceraction) (for SPADL conversion, xT, and VAEP models) and [`statsbombpy`](https://github.com/statsbomb/statsbombpy) (for fetching StatsBomb event data). In theory, they can work together. However, The problem is: older versions of `statsbombpy` (v0.x) returned events with a nested `extra` column:
+The pipeline relies on two libraries: [`socceraction`](https://github.com/ML-KULeuven/socceraction) (for SPADL conversion and xT) and [`statsbombpy`](https://github.com/statsbomb/statsbombpy) (for fetching StatsBomb event datasets). They should've work well together. However, older versions of `statsbombpy` (v0.x) returned events with a nested `extra` column:
 
 ```python
 # Legacy format: nested dicts
@@ -79,7 +78,7 @@ events["pass_outcome"] = "Complete"
 events["pass_body_part"] = "Right Foot"
 ```
 
-`socceraction` v1.5.3 — the latest stable release — expects the legacy format. Its `convert_to_actions()` function accesses `events.type_name`, `events.extra`, and `events["extra"]["pass"]["outcome"]["name"]`. None of these exist in modern `statsbombpy`. The v0.1 release that *did* use the legacy format fails to install on Python 3.12 because its caching layer (`cashier`) depends on `dummy_thread`, a module deleted in Python 3.7.
+`socceraction` v1.5.3 expects the legacy format. Its `convert_to_actions()` function accesses `events.type_name`, `events.extra`, and `events["extra"]["pass"]["outcome"]["name"]`. None of these exist in modern `statsbombpy`. The v0.1 release that *did* use the legacy format fails to install on Python 3.12 because its caching layer (`cashier`) depends on `dummy_thread`, a module deleted in Python 3.7.
 
 **Attempted fixes that didn't work:**
 
@@ -88,9 +87,9 @@ events["pass_body_part"] = "Right Foot"
 | Downgrade `statsbombpy` to v0.1 | `ModuleNotFoundError: No module named 'dummy_thread'` |
 | Downgrade `statsbombpy` to v1.3.0 | Still flattened format — no `extra` column |
 | Downgrade `statsbombpy` to v1.7.0 | Same |
-| Reconstruct legacy `extra` dict from flattened columns | Exploded in complexity — 15+ event types, each with different nested structures |
+| Reconstruct legacy `extra` dict from flattened columns | Too complex as each event type has different nested structures |
 
-I found that one solution is to **write a custom SPADL converter** myself. Here's the core mapping logic for just the pass-type differentiation:
+My solution is to **write a custom SPADL converter** myself. Here's the core mapping logic for just the pass-type differentiation:
 
 ```python
 # A "Pass" in StatsBomb could be 8 different SPADL action types:
@@ -150,17 +149,15 @@ def process_match(match_id):
     return "done"
 ```
 
-This makes the pipeline **idempotent** — re-running it always produces the same result, and already-processed matches are skipped instantly. When the full run finished at 3,927 matches, I could re-run the entire script and it would report `✓0 ↪3927 ✗0` in under a second.
+This makes the pipeline **idempotent**. Re-running it always produces the same result, and already-processed matches are skipped instantly. 
 
 ### Why Parquet?
 
-1. **Compression.** A typical match is ~3,500 JSON events (~1 MB raw). After SPADL conversion and zstd Parquet compression, it's ~50 KB. The full cache is 210 MB for 3,927 matches, which is a 20× reduction from the raw JSON.
+1. A typical match is ~1 MB. After SPADL conversion and zstd Parquet compression, it's ~50 KB. The full cache is around 210 MB for 3,927 matches, which is a 20× reduction from the raw JSON.
 
-2. **Columnar reads.** The xT model only needs 6 of the 13 columns in each file (`start_x`, `start_y`, `end_x`, `end_y`, `type_id`, `result_id`). PyArrow's `pq.read_table()` loads only those columns, skipping the other 7 entirely. Loading 13.7 million rows across 3,927 files takes **1.7 seconds**.
+2. The xT model only needs 6 of the 13 columns in each file (`start_x`, `start_y`, `end_x`, `end_y`, `type_id`, `result_id`). PyArrow's `pq.read_table()` loads only those columns, skipping the other 7 entirely. Loading 13.7 million rows across 3,927 files takes **1.7 seconds**.
 
-3. **No deserialization overhead.** CSV and JSON require parsing strings into floats and ints. Parquet stores native binary types — the data lands in memory ready to use.
-
-Parquet isn't just "a better CSV." It's a fundamentally different storage model: columnar, binary, compressed, and metadata-rich. 
+3. CSV and JSON require parsing strings into floats and ints. Parquet stores native binary types.
 
 ## Training
 
@@ -180,16 +177,4 @@ xT(cell) = P(shoot | cell) × P(goal | shoot, cell)
          + P(move | cell) × Σ [ P(land in cell' | move) × xT(cell') ]
 ```
 
-## What This Pipeline Gets Right In My Opinion
-
-**Idempotency.** The cache script can be killed at any point and restarted without penalty. Each match is an independent file. No global state, no partial downloads to clean up.
-
-**Separation of concerns.** Three scripts, three responsibilities. `01_cache_spadl.py` fetches and converts. `02_train_xt.py` loads and trains. `03_visualize_xt.py` plots. You can re-train a hundred times on different parameter settings without re-downloading anything. You can tweak the visualization colormap without touching the data pipeline.
-
-**Vectorized pandas, not for-loops.** The SPADL converter processes all 3,500 events in a match simultaneously through boolean masks. On the M1, this is the difference between ~3 ms and ~300 ms per match — multiplied by 3,927 matches, that's the difference between 12 seconds and 20 minutes of CPU time.
-
-**Graceful degradation.** Network errors are caught per-match. One bad download produces a log entry, not a crashed pipeline. In the full run, exactly one match failed (a transient SSL error on GitHub's CDN). The other 3,927 succeeded.
-
----
-
-*The full pipeline is available at [github.com/shawnhdx0710/shawnhdx0710.github.io](https://github.com/shawnhdx0710/shawnhdx0710.github.io) in the `scripts/` directory. The trained grid is in `output/xt_grid_32x24.npy`.*
+The full pipeline is available at [github.com/shawnhdx0710/shawnhdx0710.github.io](https://github.com/shawnhdx0710/shawnhdx0710.github.io) in the `scripts/` directory. The trained grid is in `output/xt_grid_32x24.npy`.
