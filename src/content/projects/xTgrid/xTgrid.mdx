@@ -6,6 +6,8 @@ tags: ['Soccer Analytics', 'Data Engineering', 'xT', 'Python']
 coverImage: ./xT-heatmap.png
 ---
 
+![3D voxel terrain of the xT grid](./xT-voxel-terrain.png)
+
 To understand Expected Threat (xT) and an xT grid, please read [Karun Singh's original 2018 blog post](https://karun.in/blog/expected-threat.html). Since xT's introduction, the metric has been reimplemented across an entire ecosystem of open-source tools.
 
 **[`socceraction`](https://github.com/ML-KULeuven/socceraction).** Reserachers at KU Leuven built a full pipeline. Their [notebook](https://github.com/ML-KULeuven/socceraction/blob/master/public-notebooks/1-load-and-convert-statsbomb-data.ipynb) walked through every step. However, it loaded a pre trained model and assumed the legacy `statsbombpy` event format, which, as we'll see, is the central problem this project had to solve.
