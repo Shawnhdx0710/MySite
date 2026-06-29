@@ -16,3 +16,4 @@ venv/
 sb_cache/
 output/xt_grid_*
 output/xt_heatmap_*
+output/xt_voxel_terrain*
