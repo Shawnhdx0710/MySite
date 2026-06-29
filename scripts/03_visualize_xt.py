@@ -187,8 +187,7 @@ def main() -> None:
     # Title
     nonzero_pct = (grid > 0).sum() / grid.size * 100
     ax.set_title(
-        f"Expected Threat (xT) Grid — {GRID_X}×{GRID_Y}  |  "
-        f"max={grid.max():.4f}  |  non‑zero cells={nonzero_pct:.1f}%",
+        f"Expected Threat (xT) Grid — {GRID_X}×{GRID_Y}  |  BY @shawnhdx0710",
         color="white", fontsize=12, fontweight="bold", pad=12,
     )
 
