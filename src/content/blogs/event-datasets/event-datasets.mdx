@@ -1,0 +1,298 @@
+---
+title: "A Guide on Free Soccer Event Datasets"
+description: "A living guide to free, open event data: where to find it, how to load it, and how its structure works."
+date: 2026-07-31
+tags: ['Open Data', 'Soccer Analytics']
+---
+
+This is a **living document**. It tracks every free, open, or scrape-only event-level data source I have found online. For each source, it shows where to find the data, how to download or scrape it, how its structure works, and how to load it. When I discover something new, I update this page.
+
+## Contents
+
+- [The tiers of event datasets](#the-tiers-of-event-datasets-based-on-accessibility)
+- [At a glance](#at-a-glance)
+- [StatsBomb](#statsbomb)
+- [Wyscout](#wyscout)
+- [WhoScored](#whoscored)
+- [Tooling](#tooling)
+- [Licensing](#licensing)
+
+## What are event datasets?
+
+Event data records every discrete on-the-ball action in a match. A pass, a shot, a duel, and a foul are all events. Each event carries a timestamp, a player, a location on the pitch, and a type. Event data differs from:
+
+- **Match sheet data** — results, lineups, and aggregated stats (shots on target, possession). It can be useful, but it has no per-action detail.
+- **Tracking data** — x/y coordinates for every player and the ball at 10–25 Hz. It is the richest data and the rarest to find free.
+
+Event data sits in a good middle ground. It is detailed enough for expected goals (xG), passing networks, pressing stats, and possession chains, etc. It also has an accessibility that tracking data mostly does not have.
+
+## The tiers of event datasets based on accessibility
+
+**1. Fully open** They are free for research, they need no authentication, and they use JSON.
+
+**2. Research-gated** They are usually granted to academic collaborators through institutional agreements. You can ask for them.
+
+**3. Scrape-only** They are rich behind anti-bot protection, they are proprietary, and scraping is almost certainly against ToS.
+
+**4. Commercial** They have high quality, but they are also expensive and licensed.
+
+## At a glance
+
+| Source | Format | Access | License | Events |
+|---|---|---|---|---|
+| [StatsBomb Open Data](#statsbomb) | JSON | Direct download | Research / non-commercial | ~3.9k matches |
+| [Wyscout public](#wyscout) | JSON | Direct download | Open (figshare) | ~3M events, 2017/18 |
+| [WhoScored](#whoscored) | JSON (in page) | Scrape | Proprietary, ToS-restricted | ~1.4k per match |
+
+## StatsBomb
+
+[StatsBomb Open Data](https://github.com/hudl/open-data) is the closest thing soccer has to a free, well-documented event dataset. It powers a large share of the tutorials, papers, and blog posts you will read, including my previous [Maradona 1986 analysis](/blog/maradona-1986/maradona-1986) and the [xT grid project](/projects/xtgrid/xtgrid).
+
+### Coverage
+
+One JSON file per match sits under `data/events/`. Lineups and competition metadata sit beside them. Coverage spans FIFA World Cups (1986–2022), Euros, Copa América, AFCON, and club competitions (Champions League, Premier League, La Liga, Serie A). In total, the data covers roughly **3,900 matches**. One limitation is that the data is historical and not the latest.
+
+### License
+
+It is not a standard open-source license. It is a [custom User Agreement](https://github.com/statsbomb/open-data#usage). The data is free for research and non-commercial use. If you publish work that uses the data, you must credit StatsBomb and use their logo per their media pack. They also ask you to register at their resource centre. The license fits blog posts and theses. It does not fit commercial products.
+
+### Structure
+
+Each event has a core set of fields plus a type-specific sub-object:
+
+```json
+{
+  "id": "4ceb0f7b",
+  "period": 2,
+  "timestamp": "00:45:31.008",
+  "minute": 46,
+  "second": 7,
+  "type": { "id": 30, "name": "Pass" },
+  "possession": 20,
+  "team": { "id": 217, "name": "Argentina" },
+  "player": { "id": 2358, "name": "Diego Armando Maradona Franco" },
+  "position": { "id": 13, "name": "Left Attacking Midfield" },
+  "location": [48.2, 39.3],
+  "duration": 0.64,
+  "related_events": ["6a22f9bb"],
+  "pass": {
+    "recipient": { "id": 2519, "name": "Jorge Valdano" },
+    "length": 7.6,
+    "angle": 27.5,
+    "height": { "id": 1, "name": "Ground Pass" },
+    "end_location": [55.1, 39.2],
+    "outcome": { "id": 1, "name": "Complete" }
+  }
+}
+```
+
+Key points:
+
+- **Coordinates** are `[x, y]` on a **0–120 × 0–80** pitch. If you compare with WhoScored's 0–100 coordinates, scale first.
+- **Types are human-readable names** (Pass, Shot, Carry, Duel, Interception, Pressure). They are friendlier than WhoScored's numeric IDs, but the taxonomy is broad.
+- **Type-specific sub-objects** carry the detail: `pass.length` / `end_location`, `shot.statsbomb_xg` / `freeze_frame`, `carry.end_location`. They are purpose-built objects instead of a generic qualifiers list.
+- **Freeze frames** (on shots) give nearby player positions. **360 frames** give all players on screen.
+
+### Loading
+
+The easiest path is [statsbombpy](https://github.com/hudl/statsbombpy), which streams the repo into pandas:
+
+```python
+from statsbombpy import sb
+
+df = sb.events(match_id=4407)   # 1986 World Cup final
+df.head()
+```
+
+For plotting, pair the data with [mplsoccer](https://github.com/andrewRowlinson/mplsoccer):
+
+```python
+from mplsoccer import Pitch
+
+pitch = Pitch(pitch_type="statsbomb")
+fig, ax = pitch.draw(figsize=(12, 8))
+```
+
+You do not need a library. The files are plain JSON on GitHub:
+
+```bash
+curl -O https://raw.githubusercontent.com/statsbomb/open-data/master/data/events/4407.json
+```
+
+## Wyscout
+
+The [Wyscout public dataset](https://figshare.com/collections/Soccer_match_event_dataset/4415000) is a spatio-temporal event dataset from Luca Pappalardo and colleagues. It was published on figshare (DOI: [10.6084/m9.figshare.c.4415000.v5](https://doi.org/10.6084/m9.figshare.c.4415000.v5)) with a paper in *Scientific Data* ([10.1038/s41597-019-0247-7](https://doi.org/10.1038/s41597-019-0247-7)). The paper is the best reference for the data structure.
+
+### Coverage
+
+The dataset covers seven competitions. They are the top-5 European leagues (La Liga, Serie A, Premier League, Bundesliga, Ligue 1) for the 2017/18 season, the 2018 World Cup (64 matches), and Euro 2016 (51 matches). In total, the data covers 1,941 matches and 3,251,294 events.
+
+### License
+
+The dataset was released openly for research use alongside the paper. The authors ask that you cite the paper and the figshare DOI when you use the data. This dataset powered the [Soccer Data Challenge](http://soccerdatachallenge.di.unipi.it/). Check the current terms on figshare before you publish work that uses it.
+
+### Structure
+
+The dataset ships as JSON files. One file holds competitions, one holds teams, and one holds players. Then each competition has a `matches_<country>.json` file and an `events_<country>.json` file (e.g. `matches_England.json` and `events_England.json`). Events are flat records, not nested like StatsBomb. A pass event looks like this:
+
+```json
+{
+  "id": 1705123456,
+  "eventId": 8,
+  "eventName": "Pass",
+  "subEventName": "Simple pass",
+  "playerId": 3344,
+  "teamId": 3161,
+  "matchId": 2576335,
+  "matchPeriod": "1H",
+  "eventSec": 2.4175,
+  "tags": [
+    { "id": 1801 }
+  ],
+  "positions": [
+    { "x": 49, "y": 50 },
+    { "x": 38, "y": 58 }
+  ]
+}
+```
+
+Key points:
+
+- **Seven top-level types** drive the data. They are `pass`, `foul`, `shot`, `duel`, `free kick`, `offside`, and `touch`. The `eventName` field holds the type. The `subEventName` field adds detail (e.g. "Simple pass", "Head pass", "Ground attacking duel", "Save attempt").
+- **Coordinates** are `x` and `y` in **0–100**, seen from the attacking team. `x` is the distance toward the opponent's goal. `y` is the distance toward the right side of the pitch. The `positions` array holds two points: the start and the end of the action.
+- **Tags encode outcomes** as numeric IDs. Each event has a `tags` array of `{"id": N}` objects. Tag `1801` means the action was accurate. Tag `1802` means not accurate. Tag `1401` marks an interception. The paper's Table 2 lists the full dictionary.
+- **`matchPeriod`** is one of `1H`, `2H`, `E1`, `E2`, or `P`. **`eventSec`** is the time in seconds since the start of the period.
+
+### Loading
+
+The easiest path is [socceraction](https://github.com/ML-KULeuven/socceraction)'s `PublicWyscoutLoader`. It downloads the figshare files into a local folder and returns clean dataframes:
+
+```python
+from socceraction.data.wyscout import PublicWyscoutLoader
+
+loader = PublicWyscoutLoader(root="wyscout_data", download=True)
+competitions = loader.competitions()
+
+england = competitions[competitions["competition_name"].str.contains("England")]
+games = loader.games(
+    competition_id=england.iloc[0]["competition_id"],
+    season_id=england.iloc[0]["season_id"],
+)
+events = loader.events(game_id=games.iloc[0]["game_id"])
+events.head()
+```
+
+No library is required for the raw data. The events are plain JSON, so pandas reads them directly:
+
+```python
+import pandas as pd
+
+events = pd.read_json("events_England.json")
+events.head()
+```
+
+Each country file holds several hundred thousand events, so filter to one match before you build anything heavy on it.
+
+## WhoScored
+
+[WhoScored](https://www.whoscored.com) has event data for almost every match in the major competitions. Unlike StatsBomb, the data is *current*. It covers full recent seasons and live matches. The catch is that the data is proprietary. It is licensed from Opta/Stats Perform, it sits behind Cloudflare, and its ToS bans scraping.
+
+The method fits in one line. The match-centre page is a single-page app. All the match data ships inside the HTML so the JavaScript can render it. Bypass Cloudflare, pull the page, extract one JavaScript object literal, and parse it.
+
+### Which matches have match centres?
+
+Look at a match list on WhoScored. Every covered match shows a small **Match Centre** link, like the ones in the screenshot below. If a match has that link, you can scrape it.
+
+![WhoScored match list — each covered match has a Match Centre link](./match-centre-eg.png)
+
+The link opens the match-centre page. That page is a single-page app, so all its event data sits in the HTML source. Scrape the page, then pull the data out of the source. The steps below show how.
+
+Not every match has the link. Coverage follows the competitions in WhoScored's detailed Opta feed — the top leagues of Europe, UEFA club competitions, major international tournaments, and many domestic leagues worldwide ([their about page](https://www.whoscored.com/aboutus) lists them). I verified this on four matches. A Champions League match, an MLS match, and a Russian Premier League match all expose the full event stream (pages around 1.2 MB). A Belarus Premier League match does not (page around 0.1 MB, summary only). Small domestic leagues and most lower divisions usually have no match centre.
+
+### Step 1: Bypass Cloudflare
+
+A plain `curl` gets a 403 block page. The usual escape hatch is [`cloudscraper`](https://pypi.org/project/cloudscraper/):
+
+```python
+import cloudscraper
+
+scraper = cloudscraper.create_scraper(
+    browser={'browser': 'chrome', 'platform': 'darwin', 'mobile': False},
+)
+url = "https://www.whoscored.com/matches/1978405/live/europe-champions-league-2025-2026-arsenal-atletico-madrid"
+response = scraper.get(url, timeout=30)
+print(response.status_code, len(response.text))   # 200, ~1,300,000
+```
+
+### Step 2: Find the data
+
+Search for `matchCentreData`. It lives inside a `require.config.params["args"]` object:
+
+```python
+import re
+match = re.search(r'require\.config\.params\["args"\]\s*=\s*({.+?});\s*\n', response.text, re.DOTALL)
+```
+
+That object is a JS literal (unquoted outer keys, JSON inside). It has `matchId`, `matchCentreData`, `matchCentreEventTypeJson`, and `formationIdNameMappings`. `matchCentreData` holds the `events` array, a `playerIdNameDictionary`, and the full `home`/`away` team objects (players, stats, shot zones, incident events).
+
+### Step 3: Parse the object literal
+
+The pragmatic way to parse a JS object literal is to let JavaScript parse it:
+
+```bash
+node -e "const a = require('/tmp/args.js'); console.log(a.matchCentreData.events.length)"
+# 1398  events for Arsenal vs Atlético
+```
+
+A single event looks like this:
+
+```json
+{
+  "eventId": 4,
+  "minute": 0,
+  "second": 2,
+  "teamId": 63,
+  "playerId": 80764,
+  "x": 36.6,
+  "y": 49.2,
+  "period": { "value": 1, "displayName": "FirstHalf" },
+  "type": { "value": 1, "displayName": "Pass" },
+  "outcomeType": { "value": 1, "displayName": "Successful" },
+  "qualifiers": [
+    { "type": { "value": 140, "displayName": "PassEndX" }, "value": "29.7" },
+    { "type": { "value": 141, "displayName": "PassEndY" }, "value": "67.0" },
+    { "type": { "value": 212, "displayName": "Length" }, "value": "14.1" }
+  ],
+  "isTouch": true,
+  "endX": 29.7,
+  "endY": 67
+}
+```
+
+Field notes: `type.value` resolves to a name via `matchCentreEventTypeJson` (numeric IDs throughout, unlike StatsBomb's named types). `x`/`y` are **0–100**. `qualifiers` carry event-specific detail (pass length/angle/end, shot coordinates, zone). `playerId` resolves via `playerIdNameDictionary`.
+
+### The ethics
+
+Scraping WhoScored is **against its Terms of Service**. The data belongs to a rights holder that pays for the data. The practice stays defensible for personal work under four conditions: a handful of matches, never redistributed, non-commercial, and modest request volume. Avoid publishing raw dumps, scraping at scale, and building anything on the data. If you want data you can publish with, use [StatsBomb](#statsbomb). It is licensed for exactly that.
+
+## Tooling
+
+Free data is only useful if you can load and process it. The community has built open tools that do this well:
+
+- **[kloppy](https://github.com/PySport/kloppy)** loads event and tracking data from many providers into standardized formats.
+- **[statsbombpy](https://github.com/hudl/statsbombpy)** / **StatsBombR** are official clients for StatsBomb data.
+- **[socceraction](https://github.com/ML-KULeuven/socceraction)** converts raw events to **SPADL** (the standard action representation) and implements xT / VAEP valuation.
+- **[mplsoccer](https://github.com/andrewRowlinson/mplsoccer)** is widely used for drawing pitches and visualizing events.
+- **[floodlight](https://github.com/floodlight-ai/floodlight)** is a NumPy/Pandas package for sports data analysis.
+
+The [KU Leuven ECML/PKDD 2024 tutorial on team sports analytics](https://dtai.cs.kuleuven.be/tutorials/sports/ecml2024/notes/datasets/soccer/) collects a good part of this landscape. It is worth bookmarking.
+
+## Licensing
+
+Free access does not equal free use. Keep three things in mind:
+
+- **StatsBomb open data** allows research and non-commercial use. It also requires attribution and registration.
+- **Scraped data** is almost certainly a ToS violation, even if the data is "publicly visible." It is fine for personal learning. It is not fine to publish or ship.
+- **None of the free event data** allows building a commercial product without a license.
+
+My recommendation: use the open datasets for anything I might publish. Keep scrape-only sources for personal experiments that never get redistributed.
