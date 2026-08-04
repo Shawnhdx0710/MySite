@@ -14,7 +14,10 @@ This is a **living document**. It tracks every free, open, or scrape-only event-
 - [At a glance](#at-a-glance)
 - [StatsBomb](#statsbomb)
 - [Wyscout](#wyscout)
+- [IMPECT](#impect)
+- [SPORTEC](#sportec)
 - [WhoScored](#whoscored)
+- [PFF](#pff)
 - [Tooling](#tooling)
 - [Licensing](#licensing)
 
@@ -43,7 +46,10 @@ Event data sits in a good middle ground. It is detailed enough for expected goal
 |---|---|---|---|---|
 | [StatsBomb Open Data](#statsbomb) | JSON | Direct download | Research / non-commercial | ~3.9k matches |
 | [Wyscout public](#wyscout) | JSON | Direct download | Open (figshare) | ~3M events, 2017/18 |
+| [IMPECT](#impect) | JSON | Direct download | Open (attribution) | Bundesliga 23/24 |
+| [SPORTEC](#sportec) | XML | Direct download | CC-BY 4.0 | 7 matches (tracking + events) |
 | [WhoScored](#whoscored) | JSON (in page) | Scrape | Proprietary, ToS-restricted | ~1.4k per match |
+| [PFF FC](#pff) | JSON / JSONL | Form request | Free for research | 64 WC games (tracking + events) |
 
 ## StatsBomb
 
@@ -194,11 +200,66 @@ events.head()
 
 Each country file holds several hundred thousand events, so filter to one match before you build anything heavy on it.
 
+## IMPECT
+
+[IMPECT](https://github.com/ImpectAPI/open-data) is a German football analytics provider. It released open-access event data for the Bundesliga 2023/24 season. The data includes the event stream plus IMPECT's own performance KPIs, such as bypassed opponents. Those KPIs are unique to IMPECT and do not appear in the other datasets here.
+
+### Coverage
+
+The dataset covers the Bundesliga 2023/24 season. It includes match events, event-level KPIs, player KPIs, lineups and substitutions, match info, and player info.
+
+### Structure
+
+The data ships as JSON in a GitHub repository. Separate folders hold events, event KPIs, and player KPIs. File names contain the match ID.
+
+```python
+import pandas as pd
+
+df = pd.read_json("data/events/events_122838.json")
+df.head()
+```
+
+### Loading
+
+The easiest path is [kloppy](https://github.com/PySport/kloppy), which loads IMPECT's open data directly (kloppy 3.18 or later):
+
+```python
+from kloppy import impect
+
+events = impect.load_open_data(match_id=122840)
+```
+
+### License
+
+The data is free to use under IMPECT's terms, which require attribution. No scraping is needed. The files are plain JSON in the repository.
+
+## SPORTEC
+
+[SPORTEC](https://www.nature.com/articles/s41597-025-04505-y) is an integrated dataset of event and tracking data from elite soccer. It was published in *Scientific Data* by Bassek, Rein, Weber, and Memmert (2025). It is one of the few free sources that pairs official event data with full player tracking.
+
+### Coverage
+
+The dataset covers seven matches from the German Bundesliga 2022/23 season. Two are from the first division, and five are from the second division. It covers 207 players, 11,137 events, and over one million frames of x/y positions for players and the ball.
+
+### Structure
+
+Each match has three XML files: match information, match events, and position data. The position data is TRACAB tracking at 25 Hz. All definitions follow the DFL catalogue.
+
+### Loading
+
+Download the files from [figshare](https://doi.org/10.6084/m9.figshare.28196177) or load them with the [floodlight](https://github.com/floodlight-ai/floodlight) package.
+
+### License
+
+The data is released under CC-BY 4.0, authorized by the DFL (German Football League). No scraping is needed.
+
 ## WhoScored
 
 [WhoScored](https://www.whoscored.com) has event data for almost every match in the major competitions. Unlike StatsBomb, the data is *current*. It covers full recent seasons and live matches. The catch is that the data is proprietary. It is licensed from Opta/Stats Perform, it sits behind Cloudflare, and its ToS bans scraping.
 
 The method fits in one line. The match-centre page is a single-page app. All the match data ships inside the HTML so the JavaScript can render it. Bypass Cloudflare, pull the page, extract one JavaScript object literal, and parse it.
+
+If you only need ratings and match stats, use [soccerdata](https://github.com/probberechts/soccerdata)'s maintained WhoScored scraper instead. It does not expose the full event stream, so the manual method below still matters for events.
 
 ### Which matches have match centres?
 
@@ -276,6 +337,22 @@ Field notes: `type.value` resolves to a name via `matchCentreEventTypeJson` (num
 
 Scraping WhoScored is **against its Terms of Service**. The data belongs to a rights holder that pays for the data. The practice stays defensible for personal work under four conditions: a handful of matches, never redistributed, non-commercial, and modest request volume. Avoid publishing raw dumps, scraping at scale, and building anything on the data. If you want data you can publish with, use [StatsBomb](#statsbomb). It is licensed for exactly that.
 
+## PFF
+
+[PFF FC](https://www.blog.fc.pff.com/blog/pff-fc-release-2022-world-cup-data) released a dataset for the 2022 World Cup. Pro Football Focus started as an American football analytics company, and PFF FC is its soccer arm. The dataset combines broadcast tracking data, event data, and PFF's play-by-play player grades for all 64 matches.
+
+### Coverage
+
+The dataset covers all 64 matches of the 2022 World Cup. It pairs broadcast tracking data with event data and a play-by-play grade for every player.
+
+### Structure
+
+Tracking files are stored per game as `{game_id}.jsonl.bz2`. Event data sits in a per-game "Event Data" folder. Metadata files hold players, rosters, and competitions. The grades run from -2 to +2 in 0.5 steps and convert to a 0-100 scale at the season level.
+
+### Access
+
+The dataset is free, but access requires filling a short form on the PFF FC blog. The data is then shared over Google Drive. No scraping is needed.
+
 ## Tooling
 
 Free data is only useful if you can load and process it. The community has built open tools that do this well:
@@ -285,6 +362,7 @@ Free data is only useful if you can load and process it. The community has built
 - **[socceraction](https://github.com/ML-KULeuven/socceraction)** converts raw events to **SPADL** (the standard action representation) and implements xT / VAEP valuation.
 - **[mplsoccer](https://github.com/andrewRowlinson/mplsoccer)** is widely used for drawing pitches and visualizing events.
 - **[floodlight](https://github.com/floodlight-ai/floodlight)** is a NumPy/Pandas package for sports data analysis.
+- **[soccerdata](https://github.com/probberechts/soccerdata)** is a collection of scrapers by Pieter Robberechts. It loads data from FBref, Understat, Sofascore, ESPN, and WhoScored into consistent pandas dataframes and caches locally. Many of those sources are scrape-only, so use it with care.
 
 The [KU Leuven ECML/PKDD 2024 tutorial on team sports analytics](https://dtai.cs.kuleuven.be/tutorials/sports/ecml2024/notes/datasets/soccer/) collects a good part of this landscape. It is worth bookmarking.
 
@@ -298,4 +376,4 @@ Free access does not equal free use. Keep three things in mind:
 
 My recommendation: use the open datasets for anything I might publish. Keep scrape-only sources for personal experiments that never get redistributed.
 
-Last updated: August 3, 2026
+Last updated: August 4, 2026
