@@ -47,9 +47,9 @@ Event data sits in a good middle ground. It is detailed enough for expected goal
 | [StatsBomb Open Data](#statsbomb) | JSON | Direct download | Research / non-commercial | ~3.9k matches |
 | [Wyscout public](#wyscout) | JSON | Direct download | Open (figshare) | ~3M events, 2017/18 |
 | [IMPECT](#impect) | JSON | Direct download | Open (attribution) | Bundesliga 23/24 |
-| [SPORTEC](#sportec) | XML | Direct download | CC-BY 4.0 | 7 matches (tracking + events) |
+| [SPORTEC](#sportec) | XML (DFL) | Direct download | CC-BY 4.0 | 7 matches (tracking + events) |
 | [WhoScored](#whoscored) | JSON (in page) | Scrape | Proprietary, ToS-restricted | ~1.4k per match |
-| [PFF FC](#pff) | JSON / JSONL | Form request | Free for research | 64 WC games (tracking + events) |
+| [PFF FC](#pff) | JSON / JSONL (bz2) | Form request | Free for research | 64 WC games (tracking + events) |
 
 ## StatsBomb
 
@@ -202,31 +202,62 @@ Each country file holds several hundred thousand events, so filter to one match 
 
 ## IMPECT
 
-[IMPECT](https://github.com/ImpectAPI/open-data) is a German football analytics provider. It released open-access event data for the Bundesliga 2023/24 season. The data includes the event stream plus IMPECT's own performance KPIs, such as bypassed opponents. Those KPIs are unique to IMPECT and do not appear in the other datasets here.
+[IMPECT](https://github.com/ImpectAPI/open-data) is a German football analytics provider. It works with the German Football League (DFL). It released open-access event data for the Bundesliga 2023/24 season. The data is more than a raw event stream. It adds IMPECT's own performance KPIs, such as bypassed opponents. Those KPIs do not appear in the other datasets here.
 
 ### Coverage
 
-The dataset covers the Bundesliga 2023/24 season. It includes match events, event-level KPIs, player KPIs, lineups and substitutions, match info, and player info.
+The dataset covers the Bundesliga 2023/24 season. It ships as JSON in a GitHub repository. Separate folders hold match events, event KPIs, player KPIs, lineups and substitutions, match info, player info, and squad info. A `kpi_definitions.json` file explains every KPI.
 
 ### Structure
 
-The data ships as JSON in a GitHub repository. Separate folders hold events, event KPIs, and player KPIs. File names contain the match ID.
+Each match has one events file (e.g. `events_122840.json`). A typical match has roughly 3,000 events. The events are rich. Each event carries the action type, the player, the start and end position, the phase, the body part, and the result. The opening kickoff of a match looks like this:
 
-```python
-import pandas as pd
-
-df = pd.read_json("data/events/events_122838.json")
-df.head()
+```json
+{
+  "id": 4614761966,
+  "gameTime": { "gameTime": "00:00.0000", "gameTimeInSec": 0.0 },
+  "squadId": 432,
+  "player": { "id": 46957, "position": "ATTACKING_MIDFIELD", "positionSide": "CENTRE" },
+  "actionType": "KICK_OFF",
+  "start": { "coordinates": { "x": 0.0, "y": 0.0 }, "pitchPosition": "MIDDLE_THIRD", "lane": "CENTER" },
+  "end": { "coordinates": { "x": -14.8, "y": 3.2 }, "pitchPosition": "MIDDLE_THIRD", "lane": "CENTER" },
+  "action": "KICKOFF_WHISTLE",
+  "phase": "SET_PIECE",
+  "pass": { "distance": 15.1, "angle": 167.8, "receiver": { "playerId": 26476, "type": "TEAMMATE" } },
+  "bodyPart": "FOOT",
+  "duration": 1.34,
+  "opponents": 11,
+  "pxT": { "team": 0.005388, "opponent": 0.0004 },
+  "distanceToGoal": 52.5,
+  "result": "SUCCESS"
+}
 ```
+
+Key points:
+
+- **Coordinates are in meters from the pitch center.** The kickoff starts at `(0, 0)`. The goal line sits at about 52.5 meters. The `adjCoordinates` field mirrors the coordinates on the length axis.
+- **The data has around two dozen action types.** Pass, reception, dribble, shot, ground duel, clearance, interception, and block are the most common. Each event also carries `phase` (e.g. open play or set piece) and `bodyPart`.
+- **IMPECT adds proprietary KPIs.** The `pxT` field is IMPECT's expected-threat value for the action. It has a team value and an opponent value. A separate file holds one row per event and KPI, around 30,000 rows per match. The `kpi_definitions.json` file explains the 103 KPI definitions, including bypassed opponents.
 
 ### Loading
 
-The easiest path is [kloppy](https://github.com/PySport/kloppy), which loads IMPECT's open data directly (kloppy 3.18 or later):
+The easiest path is [kloppy](https://github.com/PySport/kloppy), which loads IMPECT's open data into its standard event model (kloppy 3.18 or later):
 
 ```python
 from kloppy import impect
 
 events = impect.load_open_data(match_id=122840)
+df = events.to_df(engine="pandas")
+```
+
+No library is required for the raw data. The events are plain JSON, so pandas reads them directly:
+
+```python
+import pandas as pd
+
+events = pd.read_json("data/events/events_122840.json")
+event_kpis = pd.read_json("data/events_kpis/events_kpis_122840.json")
+kpi_definitions = pd.read_json("data/kpi_definitions.json")
 ```
 
 ### License
@@ -239,15 +270,43 @@ The data is free to use under IMPECT's terms, which require attribution. No scra
 
 ### Coverage
 
-The dataset covers seven matches from the German Bundesliga 2022/23 season. Two are from the first division, and five are from the second division. It covers 207 players, 11,137 events, and over one million frames of x/y positions for players and the ball.
+The dataset covers seven matches from the German Bundesliga 2022/23 season. Two are from the first division. Five are from the second division. The first-division matches are 1. FC Köln against FC Bayern München and VfL Bochum against Bayer Leverkusen. The second-division matches are five Fortuna Düsseldorf home games. The dataset covers 207 players, 10 teams, 11,137 events, and 1,002,644 frames of x/y positions.
 
 ### Structure
 
-Each match has three XML files: match information, match events, and position data. The position data is TRACAB tracking at 25 Hz. All definitions follow the DFL catalogue.
+Each match has three XML files in the DFL format. The match information file holds the teams, the players, the pitch size, and the playing time. The events file holds the discrete actions. The position data file holds the raw tracking frames. The tracking comes from TRACAB, the official DFL system, at 25 Hz.
+
+The files follow the DFL naming convention. The match ID `J03WMX` produces these three files:
+
+```
+DFL_02_01_matchinformation_DFL-COM-000001_DFL-MAT-J03WMX.xml
+DFL_03_02_events_raw_DFL-COM-000001_DFL-MAT-J03WMX.xml
+DFL_04_03_positions_raw_observed_DFL-COM-000001_DFL-MAT-J03WMX.xml
+```
+
+The competition code is `DFL-COM-000001` for the first division and `DFL-COM-000002` for the second division. The seven match IDs are `J03WMX`, `J03WN1`, `J03WPY`, `J03WOH`, `J03WQQ`, `J03WOY`, and `J03WR9`.
 
 ### Loading
 
-Download the files from [figshare](https://doi.org/10.6084/m9.figshare.28196177) or load them with the [floodlight](https://github.com/floodlight-ai/floodlight) package.
+The easiest path is [floodlight](https://github.com/floodlight-sports/floodlight)'s `IDSSEDataset`. It downloads the figshare files for a match and parses them. It returns events, positions, possession, ball status, teamsheets, and the pitch:
+
+```python
+from floodlight.io.datasets import IDSSEDataset
+
+dataset = IDSSEDataset("J03WMX")
+events, xy, possession, ballstatus, teamsheets, pitch = dataset.get("J03WMX")
+```
+
+You can also parse the XML files directly with floodlight's DFL parsers:
+
+```python
+from floodlight.io.dfl import read_event_data_xml, read_position_data_xml
+
+events, teamsheets, pitch = read_event_data_xml("events.xml", "match_info.xml")
+xy, possession, ballstatus, teamsheets, pitch = read_position_data_xml("positions.xml", "match_info.xml")
+```
+
+The full dataset is about 2.4 GB. Load all matches with `IDSSEDataset("all")`, or download the files from [figshare](https://doi.org/10.6084/m9.figshare.28196177).
 
 ### License
 
@@ -339,15 +398,52 @@ Scraping WhoScored is **against its Terms of Service**. The data belongs to a ri
 
 ## PFF
 
-[PFF FC](https://www.blog.fc.pff.com/blog/pff-fc-release-2022-world-cup-data) released a dataset for the 2022 World Cup. Pro Football Focus started as an American football analytics company, and PFF FC is its soccer arm. The dataset combines broadcast tracking data, event data, and PFF's play-by-play player grades for all 64 matches.
+[PFF FC](https://www.blog.fc.pff.com/blog/pff-fc-release-2022-world-cup-data) is the soccer arm of Pro Football Focus. Pro Football Focus started as an American football analytics company. PFF FC released a dataset for the 2022 World Cup. The dataset combines broadcast tracking data, event data, and PFF's play-by-play player grades for all 64 matches.
 
 ### Coverage
 
-The dataset covers all 64 matches of the 2022 World Cup. It pairs broadcast tracking data with event data and a play-by-play grade for every player.
+The dataset covers all 64 matches of the 2022 World Cup. Every match has tracking data, event data, and a play-by-play grade for each player on each action.
 
 ### Structure
 
-Tracking files are stored per game as `{game_id}.jsonl.bz2`. Event data sits in a per-game "Event Data" folder. Metadata files hold players, rosters, and competitions. The grades run from -2 to +2 in 0.5 steps and convert to a 0-100 scale at the season level.
+The tracking data is broadcast tracking from Sportlogiq. Each game has one file named `{game_id}.jsonl.bz2`. The file is a bzip2-compressed JSON-lines file with one frame per line.
+
+The event data sits in the "Event Data" folder, one file per game. The metadata folder holds players, rosters, and competitions. The original release stored all events in one `events.json` file. The enhanced release split the events per game.
+
+The grades follow PFF's grading scale. Each action gets a grade from -2 to +2 in 0.5 steps. The grades convert to a 0-100 scale at the season level.
+
+### Loading
+
+Pandas reads the metadata files directly:
+
+```python
+import pandas as pd
+
+players = pd.read_csv("players.csv")
+rosters = pd.read_csv("rosters.csv")
+competitions = pd.read_csv("competitions.csv")
+```
+
+The tracking files are bzip2-compressed JSON lines. Read them with the `bz2` module:
+
+```python
+import bz2
+import json
+
+with bz2.open("game.jsonl.bz2", "rt") as f:
+    frames = [json.loads(line) for line in f]
+```
+
+PFF FC also runs a GraphQL API for its data. The [pypff](https://github.com/jackneururer/pypff) client turns the API into pandas dataframes:
+
+```python
+from pypff import pff
+
+url = "https://sandbox.faraday.pff.com/api"
+key = "your_api_key"
+
+events = pff.get_game_events(url, key, game_id=12345)
+```
 
 ### Access
 
@@ -361,7 +457,7 @@ Free data is only useful if you can load and process it. The community has built
 - **[statsbombpy](https://github.com/hudl/statsbombpy)** / **StatsBombR** are official clients for StatsBomb data.
 - **[socceraction](https://github.com/ML-KULeuven/socceraction)** converts raw events to **SPADL** (the standard action representation) and implements xT / VAEP valuation.
 - **[mplsoccer](https://github.com/andrewRowlinson/mplsoccer)** is widely used for drawing pitches and visualizing events.
-- **[floodlight](https://github.com/floodlight-ai/floodlight)** is a NumPy/Pandas package for sports data analysis.
+- **[floodlight](https://github.com/floodlight-sports/floodlight)** is a NumPy/Pandas package for sports data analysis.
 - **[soccerdata](https://github.com/probberechts/soccerdata)** is a collection of scrapers by Pieter Robberechts. It loads data from FBref, Understat, Sofascore, ESPN, and WhoScored into consistent pandas dataframes and caches locally. Many of those sources are scrape-only, so use it with care.
 
 The [KU Leuven ECML/PKDD 2024 tutorial on team sports analytics](https://dtai.cs.kuleuven.be/tutorials/sports/ecml2024/notes/datasets/soccer/) collects a good part of this landscape. It is worth bookmarking.
@@ -376,4 +472,4 @@ Free access does not equal free use. Keep three things in mind:
 
 My recommendation: use the open datasets for anything I might publish. Keep scrape-only sources for personal experiments that never get redistributed.
 
-Last updated: August 4, 2026
+Last updated: August 9, 2026
